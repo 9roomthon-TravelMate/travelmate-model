@@ -1,81 +1,65 @@
 from sklearn.metrics.pairwise import cosine_similarity
+import numpy as np
+import gc
 
 def recommend_locations_hybrid1(traveler_id, combined_similarity_df, visit_matrix, content_embeddings, n_recommendations=20):
     try:
-        # 유효한 Traveler ID인지 확인
+        # traveler_id 검증
         if traveler_id not in combined_similarity_df.index:
             raise ValueError(f"Traveler ID {traveler_id}가 유효하지 않음.")
+
+        # NumPy로 변환 (pandas 연산보다 빠름름)
+        similarity_values = combined_similarity_df.loc[traveler_id].to_numpy(dtype=np.float32)
+        similar_users = combined_similarity_df.index[similarity_values.argsort()[::-1]] 
+
+        # 자기 자신 제외
+        similar_users = similar_users[similar_users != traveler_id]
         
-        print(f"Traveler ID: {traveler_id}")
-        similar_users = combined_similarity_df.loc[traveler_id].sort_values(ascending=False)
-        similar_users = similar_users.index[similar_users.index != traveler_id]
-        # print(f"Similar users: {similar_users}")
-        
-        if similar_users.empty:
+        if similar_users.size == 0:
             raise ValueError(f"No similar users found for traveler ID {traveler_id}.")
-        
-        # 협업 필터링: 유사 사용자들의 가중치 합산을 통한 추천
-        weighted_recommendations = visit_matrix.loc[similar_users].multiply(similar_users.values, axis=0).sum(axis=0)
-        recommended_locations_cf = weighted_recommendations.sort_values(ascending=False).head(n_recommendations * 2)
-        recommended_locations_cf = recommended_locations_cf.index.tolist()
-        print(f"Recommended locations (CF): {recommended_locations_cf}")
-        
-        # 콘텐츠 기반 필터링: 첫 번째 유사 사용자의 방문지를 기반으로 추천
-        first_similar_user = similar_users[0]
-        visited_locations = visit_matrix.loc[first_similar_user]
-        visited_content_ids = visited_locations[visited_locations != 0].index.tolist()
-        # print(f"Visited content IDs: {visited_content_ids}")
 
+        # 1. 방문기록 + 유저 취향 유사도 기반 추천
+        visit_matrix_np = visit_matrix.to_numpy(dtype=np.float32)  # ✅ NumPy 변환
+        weighted_recommendations = visit_matrix_np[similar_users].T @ similarity_values[:len(similar_users)]
+        recommended_locations_cf = np.argsort(weighted_recommendations)[::-1][:n_recommendations * 2]
+
+        recommended_locations_cf = [(int(content_id), float(weighted_recommendations[content_id])) for content_id in recommended_locations_cf]
+
+        # 2. 아이템 유사도 기반 추천
         recommended_locations_cbf = []
-        if visited_content_ids:
-            try:
+        if len(similar_users) > 0:
+            first_similar_user = similar_users[0]
+            visited_content_ids = visit_matrix.loc[first_similar_user][visit_matrix.loc[first_similar_user] != 0].index.tolist()
+
+            if visited_content_ids:
                 recommended_locations_cbf = get_content_based_recommendation(visited_content_ids[0], content_embeddings, top_k=n_recommendations * 2)
-                print(f"Recommended locations (CBF): {recommended_locations_cbf}")
-            except Exception as e:
-                print(f"Error during CBF recommendation: {str(e)}")
-        else:
-            print("No visited content IDs found for CBF.")
-            
-        result = recommended_locations_cf + recommended_locations_cbf
-        duplicated = set()
-        
-        result = [x for x in result if not (x in duplicated or duplicated.add(x))] # 중복체크
-        
-        return result[:n_recommendations] + result[2*n_recommendations:3*n_recommendations]
-        
-        
-    
-    except ValueError as e:
-        # Traveler ID가 유효하지 않은 경우, CBF로만 추천
-        print(str(e))
-        try:
-            # 기본 콘텐츠 기반 추천 - 아이템 기반 추천
-            all_content_ids = content_embeddings.index.tolist()
-            recommended_locations_cbf = []
-            if all_content_ids:
-                # 가장 유사한 사용자 선택하여 해당 사용자가 방문한
-                recommended_locations_cbf = get_content_based_recommendation(all_content_ids[0], content_embeddings, top_k=n_recommendations)
-                print(f"Recommended locations (CBF - Item Based): {recommended_locations_cbf}")
-            else:
-                print("No content IDs found for item-based recommendation.")
-            return recommended_locations_cbf
-        except Exception as e:
-            print(f"Error during CBF recommendation for item-based recommendation: {str(e)}")
-            return []
+
+        recommended_locations_cbf = [(int(content_id), float(score)) for content_id, score in recommended_locations_cbf]
+
+        # 1과 2의 추천 리스트 합치고, 점수 기준 정렬
+        combined_recommendations = list(dict.fromkeys(recommended_locations_cf + recommended_locations_cbf))
+        combined_recommendations = sorted(combined_recommendations, key=lambda x: x[1], reverse=True)
+
+        gc.collect() 
+
+        return combined_recommendations[:n_recommendations]
+
+    except ValueError:
+        # 기본 콘텐츠 기반 추천 
+        all_content_ids = content_embeddings.index.tolist()
+        if all_content_ids:
+            return [(int(content_id), float(score)) for content_id, score in get_content_based_recommendation(all_content_ids[0], content_embeddings, top_k=n_recommendations)]
+        return []
 
 
-def get_content_based_recommendation(contentid, content_embeddings, top_k: int = 10):
+def get_content_based_recommendation(contentid, content_embeddings, top_k=10):
     contentid = int(contentid)
-    query = content_embeddings.loc[contentid].values.reshape(1, -1)
+    query = content_embeddings.loc[contentid].to_numpy(dtype=np.float32).reshape(1, -1) 
 
-    try:
-        similarity_scores = cosine_similarity(query, content_embeddings.drop(contentid)).flatten()
-    except Exception as e:
-        print(f"Error in calculating similarity: {str(e)}")
-        raise
-
+    similarity_scores = cosine_similarity(query, content_embeddings.drop(contentid).to_numpy(dtype=np.float32)).flatten()
     most_similar_indices = similarity_scores.argsort()[::-1][:top_k]
-    recommendation = content_embeddings.drop(contentid).iloc[most_similar_indices].index.tolist()
-    recommendation = [str(content_id) for content_id in recommendation]
-    
-    return recommendation
+
+    recommended_items = content_embeddings.drop(contentid).iloc[most_similar_indices].index.tolist()
+    recommended_scores = [float(score) for score in similarity_scores[most_similar_indices]]  
+
+    return list(zip(recommended_items, recommended_scores))  

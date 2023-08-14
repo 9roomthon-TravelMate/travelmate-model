@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-import models
+from app import models
 
 
 def get_all_preferences(db: Session, traveler_id: int =None, region_id: int = None):
@@ -17,7 +17,7 @@ def get_all_preferences(db: Session, traveler_id: int =None, region_id: int = No
         region_query = query.join(models.TourSpot, models.Visited.content_id == models.TourSpot.content_id)\
                             .filter(models.TourSpot.tour_region_id == region_id)
         region_results = region_query.all()
-        print(f"Region Results for ID {region_id}: {region_results}")  
+        #print(f"Region Results for ID {region_id}: {region_results}")  
         result.update(region_results)
     
     return list(result)

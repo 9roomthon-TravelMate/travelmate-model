@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, BigInteger, String, Date
-from database import Base
+from app.database import Base
 
 
 # 사용자 취향 테이블 참조
