@@ -23,7 +23,7 @@ travelmate-model/
 
 ## 테스트 명령어
 - python -m venv venv : 가상환경 'venv'라는 이름으로 생성
-- source venv/bin/activate   ( Windows에서는 `venv\Scripts\activate` 사용 ) : 만든 가상환경 활성화
+- source venv/bin/activate   ( Windows에서는 `.venv\Scripts\activate` 사용 ) : 만든 가상환경 활성화
 - pip install -r requirements.txt : 필요한 종속성 설치
 
 - 루트 디렉토리에 .env 파일 추가하기
