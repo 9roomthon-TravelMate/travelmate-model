@@ -2,6 +2,8 @@
 추천 모델 관련 fast API 서버
 
 ## 레포지토리 구조
+
+```
 travelmate-model/
 ├── app/
 │ ├── init.py
@@ -16,6 +18,8 @@ travelmate-model/
 ├── .gitignore
 ├── requirements.txt
 └── README.md
+```
+
 
 ## 테스트 명령어
 - python -m venv venv : 가상환경 'venv'라는 이름으로 생성
