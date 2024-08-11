@@ -1,7 +1,7 @@
 # travelmate-model
 추천 모델 관련 fast API 서버
 
-## 레포지토리 구조
+## 프로젝트 구조
 
 ```
 travelmate-model/
