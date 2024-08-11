@@ -1,3 +1,5 @@
+from sklearn.metrics.pairwise import cosine_similarity
+
 def recommend_locations_hybrid1(traveler_id, combined_similarity_df, visit_matrix, n_recommendations=20):
     if traveler_id not in combined_similarity_df.index:
         raise ValueError("Traveler ID가 유효하지 않음.")
@@ -8,19 +10,38 @@ def recommend_locations_hybrid1(traveler_id, combined_similarity_df, visit_matri
     
     # 필터링된 similar_users에서 visit_matrix에 존재하는 사용자만 선택
     similar_users = [user for user in similar_users if user in visit_matrix.index]
+    first_similar_user = similar_users[0]
+    
+    visited_locations = visit_matrix.loc[first_similar_user]
+    visited_content_ids = visited_locations[visited_locations != 0].index.tolist()[0]
+    
 
     # similar_users가 없다면 빈 추천 목록 반환
     if not similar_users:
         return []
 
-    recommended_locations = visit_matrix.loc[similar_users].sum(axis=0)
+    recommended_locations_cf = visit_matrix.loc[similar_users].sum(axis=0)
+    recommended_locations_cbf = get_content_based_recommendation(visited_content_ids, top_k=n_recommendations // 2)
 
     if traveler_id in visit_matrix.index:
         visited_locations = visit_matrix.loc[traveler_id]
-        recommended_locations = recommended_locations[visited_locations == 0]
+        recommended_locations_cf = recommended_locations_cf[visited_locations == 0]
     else:
-        recommended_locations = recommended_locations
+        recommended_locations_cf = recommended_locations_cf
 
-    recommended_locations = recommended_locations.sort_values(ascending=False).head(n_recommendations)
+    recommended_locations_cf = recommended_locations_cf.sort_values(ascending=False).head(n_recommendations // 2)
+    recommended_locations_cf = recommended_locations_cf.index.tolist()
+    
+    return recommended_locations_cf + recommended_locations_cbf
 
-    return recommended_locations.index.tolist()
+
+def get_content_based_recommendation(contentid, top_k: int = 10):
+    global content_embeddings
+    idx_map = {i: idx for i, idx in enumerate(content_embeddings.index)}
+    
+    query = content_embeddings[content_embeddings.index == contentid]
+    others = content_embeddings[content_embeddings.index != contentid]
+   
+    recommendation =cosine_similarity(query, others).argsort()[:, ::-1][0, :top_k]
+   
+    return [idx_map[idx] for idx in recommendation]
