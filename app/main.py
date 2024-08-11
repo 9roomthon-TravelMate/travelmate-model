@@ -9,7 +9,9 @@ from preprocessing import preprocess_data
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
 import pandas as pd
+import boto3
 import os
+
 
 load_dotenv()  # .env 파일 로드
 
@@ -20,8 +22,11 @@ content_embeddings = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global content_embeddings
-    content_embeddings = pd.read_csv(os.getenv('CONTENT_EMBEDDINGS_PATH'), index_col='contentid')
+    s3 = boto3.client('s3')
+    s3.download_file('travel-mate-model-server', 'model/visited_embedding.csv', 'visited_embedding.csv')
+    content_embeddings = pd.read_csv('visited_embedding.csv', index_col='contentid')
     yield
+    os.remove('visited_embedding.csv')
 
 app = FastAPI(lifespan=lifespan)
 
@@ -76,3 +81,6 @@ def get_recommendations(traveler_id: int, region_id: int = Query(None), n_recomm
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+
+
