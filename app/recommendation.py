@@ -16,7 +16,7 @@ def recommend_locations_hybrid1(traveler_id, combined_similarity_df, visit_matri
         
         # 협업 필터링: 유사 사용자들의 가중치 합산을 통한 추천
         weighted_recommendations = visit_matrix.loc[similar_users].multiply(similar_users.values, axis=0).sum(axis=0)
-        recommended_locations_cf = weighted_recommendations.sort_values(ascending=False).head(n_recommendations // 2)
+        recommended_locations_cf = weighted_recommendations.sort_values(ascending=False).head(n_recommendations * 2)
         recommended_locations_cf = recommended_locations_cf.index.tolist()
         print(f"Recommended locations (CF): {recommended_locations_cf}")
         
@@ -29,14 +29,21 @@ def recommend_locations_hybrid1(traveler_id, combined_similarity_df, visit_matri
         recommended_locations_cbf = []
         if visited_content_ids:
             try:
-                recommended_locations_cbf = get_content_based_recommendation(visited_content_ids[0], content_embeddings, top_k=n_recommendations // 2)
+                recommended_locations_cbf = get_content_based_recommendation(visited_content_ids[0], content_embeddings, top_k=n_recommendations * 2)
                 print(f"Recommended locations (CBF): {recommended_locations_cbf}")
             except Exception as e:
                 print(f"Error during CBF recommendation: {str(e)}")
         else:
             print("No visited content IDs found for CBF.")
-
-        return recommended_locations_cf + recommended_locations_cbf
+            
+        result = recommended_locations_cf + recommended_locations_cbf
+        duplicated = set()
+        
+        result = [x for x in result if not (x in duplicated or duplicated.add(x))] # 중복체크
+        
+        return result[:n_recommendations] + result[n_recommendations:2*n_recommendations]
+        
+        
     
     except ValueError as e:
         # Traveler ID가 유효하지 않은 경우, CBF로만 추천
