@@ -9,7 +9,7 @@ def preprocess_data(df_traveller, df_visited, valid_content_ids=None):
     df_traveller['start_month'] = df_traveller['travel_start_ymd'].dt.month
 
     # 카테고리형 데이터 인코딩
-    categorical_features = ['GENDER', 'AGE_GRP', 'START_MONTH']                        
+    categorical_features = ['gender', 'age_grp', 'travel_start_ymd']
     encoder = OneHotEncoder(sparse_output=False)
     encoded_features = encoder.fit_transform(df_traveller[categorical_features])
     encoded_df = pd.DataFrame(encoded_features, columns=encoder.get_feature_names_out(categorical_features))
@@ -33,17 +33,12 @@ def preprocess_data(df_traveller, df_visited, valid_content_ids=None):
     if valid_content_ids is not None:
         filtered_columns = visit_matrix.columns.intersection(valid_content_ids)
         if filtered_columns.empty:
-            print("사용자와 지역 내에 동일한 콘텐츠를 방문한 다른 사용자가 없어 방문기록 행렬은 초기화하여 사용합니다.")
+            pass
         else:
             visit_matrix = visit_matrix[filtered_columns]
-            print("디버깅: 필터링된 방문 기록 매트릭스")
-            print(visit_matrix.head())
-            print("디버깅: 필터링된 방문 기록 매트릭스 크기")
-            print(visit_matrix.shape)
 
     # 방문 기록 유사도 계산
     if visit_matrix.empty:
-        print("사용자와 동일한 콘텐츠를 방문한 다른 사용자가 없어 방문기록 행렬은 초기화하여 사용합니다.")
         user_visit_similarity_df = pd.DataFrame(0, index=df_traveller_encoded.index, columns=df_traveller_encoded.index)
     else:
         user_visit_similarity = cosine_similarity(visit_matrix)
