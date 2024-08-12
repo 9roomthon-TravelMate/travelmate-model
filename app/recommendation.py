@@ -9,7 +9,7 @@ def recommend_locations_hybrid1(traveler_id, combined_similarity_df, visit_matri
         print(f"Traveler ID: {traveler_id}")
         similar_users = combined_similarity_df.loc[traveler_id].sort_values(ascending=False)
         similar_users = similar_users.index[similar_users.index != traveler_id]
-        print(f"Similar users: {similar_users}")
+        # print(f"Similar users: {similar_users}")
         
         if similar_users.empty:
             raise ValueError(f"No similar users found for traveler ID {traveler_id}.")
@@ -24,7 +24,7 @@ def recommend_locations_hybrid1(traveler_id, combined_similarity_df, visit_matri
         first_similar_user = similar_users[0]
         visited_locations = visit_matrix.loc[first_similar_user]
         visited_content_ids = visited_locations[visited_locations != 0].index.tolist()
-        print(f"Visited content IDs: {visited_content_ids}")
+        # print(f"Visited content IDs: {visited_content_ids}")
 
         recommended_locations_cbf = []
         if visited_content_ids:
@@ -65,7 +65,6 @@ def recommend_locations_hybrid1(traveler_id, combined_similarity_df, visit_matri
 
 
 def get_content_based_recommendation(contentid, content_embeddings, top_k: int = 10):
-
     contentid = int(contentid)
     query = content_embeddings.loc[contentid].values.reshape(1, -1)
 
@@ -77,5 +76,6 @@ def get_content_based_recommendation(contentid, content_embeddings, top_k: int =
 
     most_similar_indices = similarity_scores.argsort()[::-1][:top_k]
     recommendation = content_embeddings.drop(contentid).iloc[most_similar_indices].index.tolist()
+    recommendation = [str(content_id) for content_id in recommendation]
     
     return recommendation
