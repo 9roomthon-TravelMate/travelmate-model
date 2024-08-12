@@ -22,11 +22,11 @@ content_embeddings = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global content_embeddings
-    s3 = boto3.client('s3')
-    s3.download_file('travel-mate-model-server', 'model/visited_embedding.csv', 'visited_embedding.csv')
+    # s3 = boto3.client('s3')
+    # s3.download_file('travel-mate-model-server', 'model/visited_embedding.csv', 'visited_embedding.csv')
     content_embeddings = pd.read_csv('visited_embedding.csv', index_col='contentid')
     yield
-    os.remove('visited_embedding.csv')
+    # os.remove('visited_embedding.csv')
 
 app = FastAPI(lifespan=lifespan)
 
@@ -72,15 +72,19 @@ def generate_similarity_matrices(db: Session, region_id: int = None):
 @app.get("/recommend/{traveler_id}")
 def get_recommendations(traveler_id: int, region_id: int = Query(None), n_recommendations: int = 20, db: Session = Depends(get_db)):
     try:
+        if region_id is not None:
+            filtered_content_embeddings = content_embeddings[content_embeddings['areacode'] == region_id]
+        else:
+            filtered_content_embeddings = content_embeddings.copy(deep=True)
         df_traveller_encoded, visit_matrix, combined_similarity_df = generate_similarity_matrices(db, region_id)
-        recommendations = recommend_locations_hybrid1(traveler_id, combined_similarity_df, visit_matrix, content_embeddings, n_recommendations)
+        recommendations = recommend_locations_hybrid1(traveler_id, combined_similarity_df, visit_matrix, filtered_content_embeddings, n_recommendations)
         return {"traveler_id": traveler_id, "recommendations": recommendations}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="127.0.0.1", port=8000)
 
 
 
