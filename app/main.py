@@ -9,7 +9,7 @@ from preprocessing import preprocess_data
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
 import pandas as pd
-import boto3
+# import boto3
 import os
 
 
@@ -22,11 +22,10 @@ content_embeddings = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global content_embeddings
-    s3 = boto3.client('s3')
-    s3.download_file('travel-mate-model-server', 'model/visited_embedding.csv', 'visited_embedding.csv')
-    content_embeddings = pd.read_csv('visited_embedding.csv', index_col='contentid')
+    # s3 = boto3.client('s3')
+    # s3.download_file('travel-mate-model-server', 'model/visited_embedding.csv', 'visited_embedding.csv')
+    content_embeddings = pd.read_csv('/workspaces/docker/travelmate-model/app/visited_embedding.csv', index_col='contentid')
     yield
-    os.remove('visited_embedding.csv')
 
 app = FastAPI(lifespan=lifespan)
 
@@ -73,7 +72,7 @@ def generate_similarity_matrices(db: Session, region_id: int = None):
 def get_recommendations(traveler_id: int, region_id: int = Query(None), n_recommendations: int = 20, db: Session = Depends(get_db)):
     try:
         df_traveller_encoded, visit_matrix, combined_similarity_df = generate_similarity_matrices(db, region_id)
-        recommendations = recommend_locations_hybrid1(traveler_id, combined_similarity_df, visit_matrix, n_recommendations)
+        recommendations = recommend_locations_hybrid1(traveler_id, combined_similarity_df, visit_matrix, content_embeddings, n_recommendations)
         return {"traveler_id": traveler_id, "recommendations": recommendations}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
