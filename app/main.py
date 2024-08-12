@@ -1,16 +1,30 @@
 
+# from fastapi import FastAPI, Depends, HTTPException, Query
+# from sqlalchemy.orm import Session
+# import crud
+# import models
+# from database import SessionLocal, engine
+# from recommendation import recommend_locations_hybrid1
+# from preprocessing import preprocess_data
+# from dotenv import load_dotenv
+# from contextlib import asynccontextmanager
+# import pandas as pd
+# import boto3
+# import os
+
 from fastapi import FastAPI, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-import crud
-import models
-from database import SessionLocal, engine
-from recommendation import recommend_locations_hybrid1
-from preprocessing import preprocess_data
+from . import crud
+from . import models
+from .database import SessionLocal, engine
+from .recommendation import recommend_locations_hybrid1
+from .preprocessing import preprocess_data
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
 import pandas as pd
 import boto3
 import os
+
 
 
 load_dotenv()  # .env 파일 로드
@@ -19,14 +33,20 @@ models.Base.metadata.create_all(bind=engine)
 
 content_embeddings = None
 
+# @asynccontextmanager
+# async def lifespan(app: FastAPI):
+#     global content_embeddings
+#     s3 = boto3.client('s3')
+#     s3.download_file('travel-mate-model-server', 'model/visited_embedding.csv', 'visited_embedding.csv')
+#     content_embeddings = pd.read_csv('visited_embedding.csv', index_col='contentid')
+#     yield
+#     os.remove('visited_embedding.csv')
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global content_embeddings
-    s3 = boto3.client('s3')
-    s3.download_file('travel-mate-model-server', 'model/visited_embedding.csv', 'visited_embedding.csv')
-    content_embeddings = pd.read_csv('visited_embedding.csv', index_col='contentid')
+    content_embeddings = pd.read_csv('visited_embedding-1.csv', index_col='contentid')
     yield
-    os.remove('visited_embedding.csv')
 
 app = FastAPI(lifespan=lifespan)
 
@@ -38,33 +58,46 @@ def get_db():
         db.close()
 
 def generate_similarity_matrices(db: Session, region_id: int = None):
-    preferences = crud.get_all_preferences(db)
-    visited = crud.get_all_visited(db)
-    tour_spots = crud.get_tour_spots(db, region_id)
-    valid_content_ids = set(tour_spot.content_id for tour_spot in tour_spots)
+    preferences = crud.get_all_preferences(db, region_id)
+    visited = crud.get_all_visited(db, region_id)
 
-    df_traveller = pd.DataFrame([{
-        'traveler_id': pref.traveler_id,
-        'gender': pref.gender,
-        'age_grp': pref.age_grp,
-        'travel_start_ymd': pref.travel_start_ymd,
-        'travel_end_ymd': pref.travel_end_ymd,
-        'travel_styl_1': pref.travel_styl_1,
-        'travel_styl_2': pref.travel_styl_2,
-        'travel_styl_3': pref.travel_styl_3,
-        'travel_styl_4': pref.travel_styl_4,
-        'travel_styl_5': pref.travel_styl_5,
-        'travel_styl_6': pref.travel_styl_6,
-        'travel_styl_7': pref.travel_styl_7,
-        'travel_companions_num': pref.travel_companions_num
-    } for pref in preferences])
+    # DataFrames 생성
+    if preferences:
+        df_traveller = pd.DataFrame([{
+            'traveler_id': pref.traveler_id,
+            'gender': pref.gender,
+            'age_grp': pref.age_grp,
+            'travel_start_ymd': pref.travel_start_ymd,
+            'travel_end_ymd': pref.travel_end_ymd,
+            'travel_styl_1': pref.travel_styl_1,
+            'travel_styl_2': pref.travel_styl_2,
+            'travel_styl_3': pref.travel_styl_3,
+            'travel_styl_4': pref.travel_styl_4,
+            'travel_styl_5': pref.travel_styl_5,
+            'travel_styl_6': pref.travel_styl_6,
+            'travel_styl_7': pref.travel_styl_7,
+            'travel_companions_num': pref.travel_companions_num
+        } for pref in preferences])
+    else:
+        df_traveller = pd.DataFrame()
 
-    df_visited = pd.DataFrame([{
-        'traveler_id': visit.traveler_id,
-        'content_id': visit.content_id
-    } for visit in visited])
+    if visited:
+        df_visited = pd.DataFrame([{
+            'traveler_id': visit.traveler_id,
+            'content_id': visit.content_id
+        } for visit in visited])
+    else:
+        df_visited = pd.DataFrame()
 
-    return preprocess_data(df_traveller, df_visited, valid_content_ids)
+    # 예외 처리: 비어 있는 경우 (해당 지역 데이터가 없는경우)
+    if df_traveller.empty or df_visited.empty:
+        print("No data available for the given region.")
+        df_traveller_encoded = pd.DataFrame()
+        visit_matrix = pd.DataFrame()
+        combined_similarity_df = pd.DataFrame()
+        return df_traveller_encoded, visit_matrix, combined_similarity_df
+
+    return preprocess_data(df_traveller, df_visited)
 
 # 지역 코드 param에 있으면 해당 지역으로 필터링, 지역 선택 안하면 (param에 없으면) 전체 지역 대상으로 추천
 

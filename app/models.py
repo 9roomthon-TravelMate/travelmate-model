@@ -1,5 +1,7 @@
+# from sqlalchemy import Column, Integer, BigInteger, String, Date
+# from database import Base
 from sqlalchemy import Column, Integer, BigInteger, String, Date
-from database import Base
+from .database import Base
 
 # 사용자 취향 테이블 참조
 class Preference(Base):
