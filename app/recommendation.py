@@ -41,7 +41,7 @@ def recommend_locations_hybrid1(traveler_id, combined_similarity_df, visit_matri
         
         result = [x for x in result if not (x in duplicated or duplicated.add(x))] # 중복체크
         
-        return result[:n_recommendations] + result[n_recommendations:2*n_recommendations]
+        return result[:n_recommendations] + result[2*n_recommendations:3*n_recommendations]
         
         
     
