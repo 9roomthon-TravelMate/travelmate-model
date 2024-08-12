@@ -22,11 +22,11 @@ content_embeddings = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global content_embeddings
-    # s3 = boto3.client('s3')
-    # s3.download_file('travel-mate-model-server', 'model/visited_embedding.csv', 'visited_embedding.csv')
+    s3 = boto3.client('s3')
+    s3.download_file('travel-mate-model-server', 'model/visited_embedding.csv', 'visited_embedding.csv')
     content_embeddings = pd.read_csv('visited_embedding.csv', index_col='contentid')
     yield
-    # os.remove('visited_embedding.csv')
+    os.remove('visited_embedding.csv')
 
 app = FastAPI(lifespan=lifespan)
 
