@@ -12,28 +12,26 @@ import pandas as pd
 import boto3
 import os
 
-
-
 load_dotenv()  # .env 파일 로드
 
 models.Base.metadata.create_all(bind=engine)
 
 content_embeddings = None
 
-# @asynccontextmanager
-# async def lifespan(app: FastAPI):
-#     global content_embeddings
-#     s3 = boto3.client('s3')
-#     s3.download_file('travel-mate-model-server', 'model/visited_embedding.csv', 'visited_embedding.csv')
-#     content_embeddings = pd.read_csv('visited_embedding.csv', index_col='contentid')
-#     yield
-#     os.remove('visited_embedding.csv')
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global content_embeddings
-    content_embeddings = pd.read_csv('visited_embedding-1.csv', index_col='contentid')
+    s3 = boto3.client('s3')
+    s3.download_file('travel-mate-model-server', 'model/visited_embedding.csv', 'visited_embedding.csv')
+    content_embeddings = pd.read_csv('visited_embedding.csv', index_col='contentid')
     yield
+    os.remove('visited_embedding.csv')
+
+# @asynccontextmanager
+# async def lifespan(app: FastAPI):
+#     global content_embeddings
+#     content_embeddings = pd.read_csv('visited_embedding-1.csv', index_col='contentid')
+#     yield
 
 app = FastAPI(lifespan=lifespan)
 
@@ -44,9 +42,10 @@ def get_db():
     finally:
         db.close()
 
-def generate_similarity_matrices(db: Session, region_id: int = None):
-    preferences = crud.get_all_preferences(db, region_id)
+def generate_similarity_matrices(db: Session, traveler_id: int = None, region_id: int = None):
+    preferences = crud.get_all_preferences(db, traveler_id=traveler_id, region_id=region_id)
     visited = crud.get_all_visited(db, region_id)
+    
 
     # DataFrames 생성
     if preferences:
@@ -75,16 +74,19 @@ def generate_similarity_matrices(db: Session, region_id: int = None):
         } for visit in visited])
     else:
         df_visited = pd.DataFrame()
-
-    # 예외 처리: 비어 있는 경우 (해당 지역 데이터가 없는경우)
+    
+    # 예외 처리: 비어 있는 경우 (해당 지역 데이터가 없는 경우)
     if df_traveller.empty or df_visited.empty:
         print("No data available for the given region.")
+        # 기본값이나 빈 데이터프레임을 반환하는 로직
         df_traveller_encoded = pd.DataFrame()
         visit_matrix = pd.DataFrame()
         combined_similarity_df = pd.DataFrame()
         return df_traveller_encoded, visit_matrix, combined_similarity_df
-
+    
+    
     return preprocess_data(df_traveller, df_visited)
+
 
 # 지역 코드 param에 있으면 해당 지역으로 필터링, 지역 선택 안하면 (param에 없으면) 전체 지역 대상으로 추천
 
@@ -96,7 +98,9 @@ def get_recommendations(traveler_id: int, region_id: int = Query(None), n_recomm
             filtered_content_embeddings = content_embeddings[content_embeddings['areacode'] == region_id]
         else:
             filtered_content_embeddings = content_embeddings.copy(deep=True)
-        df_traveller_encoded, visit_matrix, combined_similarity_df = generate_similarity_matrices(db, region_id)
+        
+        # traveler_id를 generate_similarity_matrices 함수에 전달
+        df_traveller_encoded, visit_matrix, combined_similarity_df = generate_similarity_matrices(db, traveler_id=traveler_id, region_id=region_id)
         recommendations = recommend_locations_hybrid1(traveler_id, combined_similarity_df, visit_matrix, filtered_content_embeddings, n_recommendations)
         return {"traveler_id": traveler_id, "recommendations": recommendations}
     except ValueError as e:
