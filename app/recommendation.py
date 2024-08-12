@@ -18,7 +18,7 @@ def recommend_locations_hybrid1(traveler_id, combined_similarity_df, visit_matri
     
     first_similar_user = similar_users[0]
     visited_locations = visit_matrix.loc[first_similar_user]
-    visited_content_ids = visited_locations[visited_locations != 0].index.tolist()[0]
+    visited_content_ids = int(visited_locations[visited_locations != 0].index.tolist()[0])
     recommended_locations_cf = visit_matrix.loc[similar_users].sum(axis=0)
     recommended_locations_cbf = get_content_based_recommendation(visited_content_ids, content_embeddings, top_k=n_recommendations // 2)
 
