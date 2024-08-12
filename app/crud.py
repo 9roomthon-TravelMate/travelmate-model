@@ -1,7 +1,6 @@
-# from sqlalchemy.orm import Session
-# import models
 from sqlalchemy.orm import Session
-from . import models
+import models
+
 
 
 def get_all_preferences(db: Session, region_id: int = None):

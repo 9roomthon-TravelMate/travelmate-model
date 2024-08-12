@@ -1,24 +1,11 @@
 
-# from fastapi import FastAPI, Depends, HTTPException, Query
-# from sqlalchemy.orm import Session
-# import crud
-# import models
-# from database import SessionLocal, engine
-# from recommendation import recommend_locations_hybrid1
-# from preprocessing import preprocess_data
-# from dotenv import load_dotenv
-# from contextlib import asynccontextmanager
-# import pandas as pd
-# import boto3
-# import os
-
 from fastapi import FastAPI, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from . import crud
-from . import models
-from .database import SessionLocal, engine
-from .recommendation import recommend_locations_hybrid1
-from .preprocessing import preprocess_data
+import crud
+import models
+from database import SessionLocal, engine
+from recommendation import recommend_locations_hybrid1
+from preprocessing import preprocess_data
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
 import pandas as pd
