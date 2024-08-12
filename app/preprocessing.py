@@ -9,7 +9,7 @@ def preprocess_data(df_traveller, df_visited, valid_content_ids=None):
     df_traveller['start_month'] = df_traveller['travel_start_ymd'].dt.month
 
     # 카테고리형 데이터 인코딩
-    categorical_features = ['gender', 'age_grp', 'travel_start_ymd']
+    categorical_features = ['gender', 'age_grp', 'start_month']
     encoder = OneHotEncoder(sparse_output=False)
     encoded_features = encoder.fit_transform(df_traveller[categorical_features])
     encoded_df = pd.DataFrame(encoded_features, columns=encoder.get_feature_names_out(categorical_features))
